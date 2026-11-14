@@ -1,173 +1,34 @@
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#101510">
-<title>IronLog Gym Tracker</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#101510;color:#f4f7f2;font-family:system-ui,sans-serif}
-header{padding:22px;background:#192019}
-h1{margin:0;font-size:28px}
-h1 span,.green{color:#baff55}
-main{padding:16px;max-width:650px;margin:auto;padding-bottom:100px}
-.card{background:#1c241e;border:1px solid #344032;border-radius:15px;padding:16px;margin:12px 0}
-button{background:#baff55;color:#14200b;border:0;border-radius:10px;padding:11px;font-weight:bold;cursor:pointer}
-button.secondary{background:#354135;color:white}
-input{width:75px;background:#101510;color:white;border:1px solid #566452;border-radius:8px;padding:9px;font-size:16px}
-nav{position:fixed;bottom:0;width:100%;display:flex;background:#1c241e;border-top:1px solid #344032}
-nav button{flex:1;background:transparent;color:#baff55;font-size:12px;padding:15px 3px}
-.muted{color:#9da99c;font-size:13px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.set{display:flex;align-items:center;gap:8px;margin:9px 0;flex-wrap:wrap}
-.done{background:#426c29!important;color:white}
-</style>
-</head>
-<body>
-<header>
-<h1>IRON<span>LOG</span></h1>
-<div class="muted">BUILD STRONGER EVERY DAY</div>
-</header>
-<main id="app"></main>
-<nav>
-<button onclick="page='home';render()">Home</button>
-<button onclick="page='plan';render()">Plan</button>
-<button onclick="page='track';render()">Track</button>
-<button onclick="page='progress';render()">Progress</button>
-<button onclick="page='history';render()">History</button>
-</nav>
-<script>
-const plan=[
-{name:"Push",muscles:"Chest, shoulders, triceps",ex:[
-["Bench Press",4],["Incline Dumbbell Press",3],
-["Shoulder Press",3],["Lateral Raise",3],
-["Triceps Pushdown",3]]},
-{name:"Pull",muscles:"Back and biceps",ex:[
-["Lat Pulldown",4],["Barbell Row",3],
-["Cable Row",3],["Face Pull",3],["Biceps Curl",3]]},
-{name:"Legs",muscles:"Quads, hamstrings, calves",ex:[
-["Squat",4],["Romanian Deadlift",3],
-["Leg Press",3],["Leg Curl",3],["Calf Raise",4]]},
-{name:"Upper",muscles:"Chest, back, shoulders, arms",ex:[
-["Incline Bench Press",3],["Pull Ups",3],
-["Chest Supported Row",3],["Lateral Raise",3],
-["Hammer Curl",3]]},
-{name:"Lower",muscles:"Legs, glutes, core",ex:[
-["Front Squat",3],["Hip Thrust",3],
-["Split Squat",3],["Leg Extension",3],["Plank",3]]}
-];
-let page="home",day=0,session=null;
-let history=[];
-try{history=JSON.parse(localStorage.getItem("ironlog-history")||"[]")}catch(e){}
-const app=document.getElementById("app");
-function save(){localStorage.setItem("ironlog-history",JSON.stringify(history))}
-function start(i){
-day=i;
-session={day:i,ex:plan[i].ex.map(([name,count])=>({
-name,sets:Array.from({length:count},()=>({weight:"",reps:"",done:false}))
-}))};
-page="track";render();
-}
-function render(){
-if(page==="home"){
-app.innerHTML=`<h2>Welcome back 💪</h2>
-<div class="card"><div class="muted">TOTAL WORKOUTS</div>
-<h1 class="green">${history.length}</h1></div>
-<h3>Your 5-day muscle-building split</h3>`+
-plan.map((p,i)=>`<div class="card row">
-<div><b>Day ${i+1}: ${p.name}</b><div class="muted">${p.muscles}</div></div>
-<button onclick="start(${i})">Start</button></div>`).join("");
-}
-if(page==="plan"){
-app.innerHTML="<h2>Workout Planner</h2>"+
-plan.map((p,i)=>`<div class="card">
-<h3>Day ${i+1}: ${p.name}</h3>
-<div class="muted">${p.muscles}</div>
-${p.ex.map(e=>`<p>${e[0]} — ${e[1]} sets</p>`).join("")}
-<button onclick="start(${i})">Start Workout</button></div>`).join("");
-}
-if(page==="track"){
-if(!session){app.innerHTML='<h2>No active workout</h2><button onclick="page=\'plan\';render()">Choose Workout</button>';return}
-app.innerHTML=`<h2>${plan[session.day].name} Workout</h2>
-<p class="muted">Enter weight in pounds and repetitions. Tap ✓ to mark completed sets.</p>`+
-session.ex.map((ex,i)=>`<div class="card"><h3>${ex.name}</h3>`+
-ex.sets.map((s,j)=>`<div class="set">
-<span>Set ${j+1}</span>
-<input type="number" min="0" step="0.5" placeholder="lb"
-value="${s.weight}" oninput="update(${i},${j},'weight',this.value)">
-<input type="number" min="0" placeholder="reps"
-value="${s.reps}" oninput="update(${i},${j},'reps',this.value)">
-<button class="${s.done?'done':'secondary'}" onclick="toggle(${i},${j})">✓</button>
-</div>`).join("")+"</div>").join("")+
-'<button onclick="finish()">Finish & Save Workout</button>';
-}
-if(page==="progress"){
-let volume=history.reduce((a,h)=>a+h.volume,0);
-let best={};
-history.forEach(h=>h.ex.forEach(e=>e.sets.forEach(s=>{
-if(s.done)best[e.name]=Math.max(best[e.name]||0,Number(s.weight)||0);
-})));
-app.innerHTML=`<h2>Progress</h2><div class="card">
-<h3>${history.length} workouts completed</h3>
-<h3 class="green">${volume.toLocaleString()} lb total volume</h3>
-</div><h3>Personal Bests</h3>`+
-(Object.entries(best).map(([n,v])=>`<div class="card row"><span>${n}</span><b class="green">${v} lb</b></div>`).join("")||'<p class="muted">Complete a workout to see your progress.</p>');
-}
-if(page==="history"){
-app.innerHTML="<h2>Workout History</h2>"+
-(history.slice().reverse().map(h=>`<div class="card">
-<b>${plan[h.day].name} Day</b>
-<p class="muted">${new Date(h.date).toLocaleString()}</p>
-<p>${h.volume.toLocaleString()} lb volume</p>
-<details><summary>Exercise details</summary>
-${h.ex.map(e=>`<p><b>${e.name}</b>: ${e.sets.filter(s=>s.done).map(s=>`${s.weight} lb × ${s.reps}`).join(", ")||"No completed sets"}</p>`).join("")}
-</details></div>`).join("")||'<p class="muted">No workouts saved yet.</p>')+
-'<button onclick="backup()">Export Backup</button>';
-}
-}
-function update(i,j,key,value){session.ex[i].sets[j][key]=value}
-function toggle(i,j){let s=session.ex[i].sets[j];s.done=!s.done;render()}
-function finish(){
-if(!session.ex.some(e=>e.sets.some(s=>s.done))){
-alert("Complete at least one set.");return;
-}
-let volume=session.ex.reduce((a,e)=>a+e.sets.reduce((b,s)=>
-b+(s.done?(Number(s.weight)||0)*(Number(s.reps)||0):0),0),0);
-history.push({...session,date:new Date().toISOString(),volume});
-save();session=null;page="history";render();
-}
-function backup(){
-let a=document.createElement("a");
-a.href=URL.createObjectURL(new Blob([JSON.stringify(history,null,2)],{type:"application/json"}));
-a.download="ironlog-backup.json";a.click();
-setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-render();
-let remaining=90,interval=null;
-let timer=document.createElement("div");
-timer.className="card";
-timer.style="position:fixed;bottom:58px;right:10px;padding:9px;z-index:3";
-timer.innerHTML='<span id="clock" class="green">01:30</span> <button id="timerbtn">Start Rest</button>';
-document.body.appendChild(timer);
-function showClock(){
-document.getElementById("clock").textContent=
-String(Math.floor(remaining/60)).padStart(2,"0")+":"+
-String(remaining%60).padStart(2,"0");
-}
-document.getElementById("timerbtn").onclick=function(){
-if(interval){clearInterval(interval);interval=null;this.textContent="Resume";return}
-if(remaining===0)remaining=90;
-this.textContent="Pause";
-interval=setInterval(()=>{
-remaining--;showClock();
-if(remaining<=0){clearInterval(interval);interval=null;
-remaining=90;this.textContent="Start Rest";
-if(navigator.vibrate)navigator.vibrate(200);
-alert("Rest complete!");showClock()}
-},1000);
-};
-</script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101510"><meta name="apple-mobile-web-app-capable" content="yes"><title>IronLog 2.0</title><style>
+:root{color-scheme:dark;--bg:#101510;--panel:#1b251e;--line:#344537;--accent:#baff55;--muted:#9eae9f}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f8f2;font:15px system-ui,-apple-system,sans-serif}header{padding:18px 16px;background:#19231b;position:sticky;top:0;z-index:3}header b{font-size:26px;letter-spacing:-1px}header b span,.accent{color:var(--accent)}main{max-width:700px;margin:auto;padding:18px 14px 130px}h2{margin:0 0 12px}h3{margin:8px 0}p{line-height:1.45}.muted,small{color:var(--muted)}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.stack{display:grid;gap:9px}.btn,button{border:0;border-radius:10px;padding:10px 13px;background:var(--accent);color:#16200f;font-weight:750;cursor:pointer}button.alt{background:#344437;color:#fff}button.danger{background:#60302f;color:#fff}button:disabled{opacity:.5}input,select{background:#101810;border:1px solid #526452;border-radius:9px;color:white;padding:10px;min-width:0;font-size:16px}input[type=number]{width:80px}input[type=text]{width:100%}nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1b251e;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:4}nav button{flex:1;background:transparent;color:#afc0ae;font-size:11px;padding:14px 2px}nav button.on{color:var(--accent)}.pill{font-size:12px;color:var(--accent);background:#31442b;padding:5px 8px;border-radius:8px}.set{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:9px 0}.set input{width:76px}.set button.done{background:#3b7942;color:white}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.chart{display:flex;align-items:flex-end;gap:8px;height:145px;border-bottom:1px solid #647264;padding-top:15px}.chart .column{flex:1;background:var(--accent);min-height:3px;border-radius:6px 6px 0 0;position:relative}.chart .column span{position:absolute;bottom:100%;font-size:10px;left:0;white-space:nowrap}.guide{width:100%;max-width:250px;height:125px;display:block;margin:8px auto;background:#152019;border-radius:12px}.timerdisplay{text-align:center;font-size:45px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent);margin:12px 0}details{margin:12px 0}summary{cursor:pointer;color:var(--accent)}.notice{border-left:3px solid var(--accent);padding-left:12px;color:var(--muted);font-size:13px}label{display:block;margin:8px 0;color:var(--muted);font-size:13px}
+</style></head><body><header><b>IRON<span>LOG</span> <small style="font-size:11px">2.0</small></b><div class="muted" style="font-size:11px">BUILD STRONGER EVERY DAY</div></header><main id="app"></main><nav id="nav"></nav><script>
+'use strict';
+const initial=[['Push','Chest · Shoulders · Triceps',[['Bench Press',4,'6–10'],['Incline Dumbbell Press',3,'8–12'],['Shoulder Press',3,'8–12'],['Lateral Raise',3,'12–15'],['Triceps Pushdown',3,'10–15']]],['Pull','Back · Biceps',[['Lat Pulldown',4,'8–12'],['Barbell Row',3,'6–10'],['Cable Row',3,'10–12'],['Face Pull',3,'12–15'],['Biceps Curl',3,'10–12']]],['Legs','Quads · Hamstrings · Calves',[['Squat',4,'6–10'],['Romanian Deadlift',3,'8–12'],['Leg Press',3,'10–12'],['Leg Curl',3,'10–15'],['Calf Raise',4,'12–15']]],['Upper','Chest · Back · Arms',[['Incline Bench Press',3,'8–10'],['Pull Ups',3,'8–12'],['Chest Supported Row',3,'8–12'],['Lateral Raise',3,'12–15'],['Hammer Curl',3,'10–12']]],['Lower','Legs · Glutes · Core',[['Front Squat',3,'6–10'],['Hip Thrust',3,'8–12'],['Split Squat',3,'8–12'],['Leg Extension',3,'12–15'],['Plank',3,'30–60 sec']]]];
+const defaults=()=>initial.map(([name,muscles,ex])=>({name,muscles,ex:ex.map(([name,sets,reps])=>({name,sets,reps}))}));
+const KEY='ironlog2-data';let data={plan:defaults(),history:[],session:null};try{const v=JSON.parse(localStorage.getItem(KEY));if(v&&Array.isArray(v.plan)&&Array.isArray(v.history))data={...data,...v}}catch(e){};
+// Migrate the original IronLog workout history without deleting the original key.
+if(!localStorage.getItem(KEY)){try{const old=JSON.parse(localStorage.getItem('ironlog-history')||'[]');if(Array.isArray(old))data.history=old.map(h=>({...h,exercises:h.exercises||h.ex||[],date:h.date||new Date().toISOString()}))}catch(e){}}
+let page='home',selected=0,stopwatch={running:false,elapsed:0,start:0,laps:[]},rest={running:false,remaining:90,end:0};const app=document.getElementById('app');const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert('Storage unavailable. Export a backup from History.')}}
+function duration(s){let n=Math.max(0,Math.floor(s));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+function volume(h){return (h.exercises||h.ex||[]).reduce((n,x)=>n+(x.sets||[]).reduce((a,s)=>a+(s.done?(+s.weight||0)*(+s.reps||0):0),0),0)}
+function completed(h){return (h.exercises||h.ex||[]).reduce((n,x)=>n+(x.sets||[]).filter(s=>s.done).length,0)}
+function drawGuide(name){let n=name.toLowerCase(),type=/squat|leg press|split squat|extension|calf|curl$/.test(n)?'legs':/row|pull|lat|face/.test(n)?'pull':/plank/.test(n)?'core':/hip|deadlift/.test(n)?'hinge':'push';let pos={push:[65,55,104,52],pull:[60,52,100,37],legs:[68,64,112,95],core:[45,80,120,80],hinge:[62,65,109,83]}[type];return `<svg class="guide" viewBox="0 0 180 120" role="img" aria-label="Simplified ${type} movement illustration"><g stroke="#baff55" stroke-width="6" fill="none" stroke-linecap="round"><circle cx="82" cy="24" r="10" stroke-width="4"/><path d="M82 35 L${pos[0]} ${pos[1]} L${pos[2]} ${pos[3]}"/><path d="M76 41 L42 56 M76 41 L119 48"/><path d="M${pos[0]} ${pos[1]} L48 98 M${pos[0]} ${pos[1]} L115 101"/></g><path d="M20 108 H160" stroke="#456048" stroke-width="2"/><text x="90" y="116" text-anchor="middle" fill="#9eae9f" font-size="8">SCHEMATIC · ${type.toUpperCase()}</text></svg>`}
+function nav(){document.getElementById('nav').innerHTML=['home','plan','track','progress','history','timer'].map(t=>`<button class="${page===t?'on':''}" data-page="${t}">${({home:'Home',plan:'Plan',track:'Track',progress:'Progress',history:'History',timer:'Timer'})[t]}</button>`).join('')}
+function render(){nav();let h='';if(page==='home'){h=`<h2>Welcome back 💪</h2><div class="card row"><div><small>WORKOUTS COMPLETED</small><h2 class="accent">${data.history.length}</h2></div><div><small>5-DAY MUSCLE PLAN</small><h2 class="accent">${data.plan.length} days</h2></div></div><h3>Choose a workout</h3>`+data.plan.map((p,i)=>`<div class="card row"><div><b>${esc(p.name)}</b><p class="muted">${esc(p.muscles)}</p></div><button data-start="${i}">Start</button></div>`).join('')}
+if(page==='plan'){h='<h2>Customize your plan</h2><p class="muted">Change names, exercises, sets and rep targets. Changes save automatically.</p>'+data.plan.map((p,i)=>`<div class="card"><div class="row"><h3>Day ${i+1}</h3><button class="danger" data-remove-day="${i}">Remove</button></div><label>Day name<input type="text" data-day="${i}" data-field="name" value="${esc(p.name)}"></label><label>Muscle groups<input type="text" data-day="${i}" data-field="muscles" value="${esc(p.muscles)}"></label>${p.ex.map((x,j)=>`<div class="card"><label>Exercise<input type="text" data-day="${i}" data-ex="${j}" data-field="name" value="${esc(x.name)}"></label><div class="row"><label>Sets <input type="number" min="1" max="12" data-day="${i}" data-ex="${j}" data-field="sets" value="${x.sets}"></label><label>Target reps<input style="width:105px" type="text" data-day="${i}" data-ex="${j}" data-field="reps" value="${esc(x.reps)}"></label><button class="danger" data-remove-ex="${i}:${j}">×</button></div><details><summary>Movement illustration</summary>${drawGuide(x.name)}<small>General movement sketch, not a precise exercise demonstration. Check technique with a qualified trainer.</small></details></div>`).join('')}<div class="toolbar"><button class="alt" data-add-ex="${i}">+ Exercise</button><button data-start="${i}">Start day</button></div></div>`).join('')+'<button data-add-day="1">+ Add training day</button>'}
+if(page==='track'){let s=data.session;if(!s){h='<h2>No active session</h2><p>Choose a workout from Home or Plan.</p><button data-page="home">Choose workout</button>'}else{h=`<div class="row"><h2>${esc(s.name)}</h2><button class="danger" data-discard="1">Discard</button></div><p class="muted">Enter pounds and reps, then mark each completed set.</p>`+s.exercises.map((x,i)=>`<div class="card"><h3>${esc(x.name)}</h3><details><summary>Exercise illustration & guidance</summary>${drawGuide(x.name)}<p class="muted">Use controlled technique, a comfortable range of motion, and an appropriate load. Illustration is schematic, not exercise-specific.</p></details>${x.sets.map((set,j)=>`<div class="set"><span style="width:40px">${j+1}.</span><input aria-label="Weight in pounds" type="number" min="0" step="0.5" placeholder="lb" data-set-field="weight" data-i="${i}" data-j="${j}" value="${esc(set.weight)}"><input aria-label="Repetitions" type="number" min="0" step="1" placeholder="reps" data-set-field="reps" data-i="${i}" data-j="${j}" value="${esc(set.reps)}"><button class="${set.done?'done':'alt'}" data-toggle="${i}:${j}">${set.done?'✓ Done':'○'}</button></div>`).join('')}</div>`).join('')+`<div class="toolbar"><button data-finish="1">Finish & Save</button><button class="alt" data-page="timer">Open Timer</button></div>`}}
+if(page==='progress'){let total=data.history.reduce((a,h)=>a+volume(h),0),bests={};data.history.forEach(h=>(h.exercises||h.ex||[]).forEach(x=>(x.sets||[]).forEach(s=>{if(s.done&&+s.weight>0)bests[x.name]=Math.max(bests[x.name]||0,+s.weight)})));let last=data.history.slice(-8),max=Math.max(1,...last.map(volume));h=`<h2>Progress dashboard</h2><div class="card"><small>SESSIONS</small><h2 class="accent">${data.history.length}</h2><small>TOTAL VOLUME</small><h2 class="accent">${Math.round(total).toLocaleString()} lb</h2></div><div class="card"><h3>Volume per session</h3>${last.length?`<div class="chart">${last.map(x=>`<div class="column" style="height:${Math.max(3,volume(x)/max*100)}%"><span>${Math.round(volume(x))}</span></div>`).join('')}</div><small>Last ${last.length} sessions · pounds × reps</small>`:'<p class="muted">Log your first workout to see the chart.</p>'}</div><h3>Personal bests</h3>`+(Object.entries(bests).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="card row"><span>${esc(n)}</span><b class="accent">${v} lb</b></div>`).join('')||'<p class="muted">No personal bests yet.</p>')}
+if(page==='history'){h='<h2>Workout history & backups</h2><p class="notice">Data is saved automatically on this device. It does not sync between devices. Export a backup regularly.</p><div class="toolbar"><button data-export="1">Export JSON backup</button><button class="alt" data-import="1">Restore backup</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>'+data.history.slice().reverse().map(x=>`<div class="card"><div class="row"><b>${esc(x.name||data.plan[x.day]?.name||'Workout')}</b><span class="pill">${completed(x)} sets</span></div><p class="muted">${new Date(x.date).toLocaleString()} · ${Math.round(volume(x))} lb volume</p><details><summary>View completed sets</summary>${(x.exercises||x.ex||[]).map(e=>`<p><b>${esc(e.name)}</b><br><small>${e.sets.filter(s=>s.done).map(s=>`${esc(s.weight)} lb × ${esc(s.reps)}`).join(' · ')||'None'}</small></p>`).join('')}</details></div>`).join('')||'<p class="muted">No saved workouts yet.</p>')}
+if(page==='timer'){h=`<h2>Workout stopwatch</h2><div class="card"><div class="timerdisplay" id="stop-clock">00:00.00</div><div class="toolbar"><button data-sw="start" id="sw-start">Start</button><button class="alt" data-sw="lap">Lap</button><button class="alt" data-sw="reset">Reset</button></div><div id="laps"></div></div><h2>Rest countdown</h2><div class="card"><div class="timerdisplay" id="rest-clock">01:30</div><div class="toolbar">${[60,90,120,180].map(n=>`<button class="alt" data-rest-preset="${n}">${n}s</button>`).join('')}</div><div class="toolbar"><button data-rest="start" id="rest-start">Start Rest</button><button class="alt" data-rest="reset">Reset</button></div><p class="muted">Alerts work while the page is active. iPhone may suspend timers and sounds in the background.</p></div>`}
+app.innerHTML=h;if(page==='timer')tick()}
+function start(i){if(data.session&&!confirm('Replace your unfinished session?'))return;let p=data.plan[i];data.session={day:i,name:p.name,date:new Date().toISOString(),exercises:p.ex.map(x=>({name:x.name,sets:Array.from({length:Math.max(1,Math.min(12,+x.sets||1))},()=>({weight:'',reps:'',done:false}))}))};save();page='track';render()}
+function finish(){if(!data.session||!completed(data.session)){alert('Complete at least one set first.');return}data.history.push({...data.session,date:new Date().toISOString()});data.session=null;save();page='history';render()}
+function exportData(){let blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),...data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ironlog-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+app.addEventListener('click',e=>{let b=e.target.closest('button');if(!b)return;let d=b.dataset;if(d.page){page=d.page;render()}else if(d.start!==undefined)start(+d.start);else if(d.toggle){let [i,j]=d.toggle.split(':').map(Number);let s=data.session.exercises[i].sets[j];s.done=!s.done;save();render()}else if(d.finish)finish();else if(d.discard&&confirm('Discard this session?')){data.session=null;save();render()}else if(d.addDay){data.plan.push({name:'New Day',muscles:'Custom',ex:[]});save();render()}else if(d.removeDay!==undefined&&confirm('Remove this training day?')){data.plan.splice(+d.removeDay,1);save();render()}else if(d.addEx!==undefined){data.plan[+d.addEx].ex.push({name:'New Exercise',sets:3,reps:'8–12'});save();render()}else if(d.removeEx){let [i,j]=d.removeEx.split(':').map(Number);data.plan[i].ex.splice(j,1);save();render()}else if(d.export)exportData();else if(d.import)document.getElementById('import-file').click();else if(d.sw){if(d.sw==='start'){if(stopwatch.running){stopwatch.elapsed+=performance.now()-stopwatch.start;stopwatch.running=false}else{stopwatch.start=performance.now();stopwatch.running=true}}if(d.sw==='lap')stopwatch.laps.unshift(stopwatch.elapsed+(stopwatch.running?performance.now()-stopwatch.start:0));if(d.sw==='reset')stopwatch={running:false,elapsed:0,start:0,laps:[]};tick()}else if(d.restPreset){rest={running:false,remaining:+d.restPreset,end:0};tick()}else if(d.rest){if(d.rest==='reset'){rest={running:false,remaining:90,end:0}}else if(rest.running){rest.remaining=Math.max(0,Math.ceil((rest.end-Date.now())/1000));rest.running=false}else{if(rest.remaining<=0)rest.remaining=90;rest.end=Date.now()+rest.remaining*1000;rest.running=true}tick()}});
+app.addEventListener('change',async e=>{let el=e.target;if(el.id==='import-file'&&el.files[0]){try{let v=JSON.parse(await el.files[0].text());if(!Array.isArray(v.plan)||!Array.isArray(v.history))throw Error('Invalid IronLog 2.0 backup');if(confirm('Replace current workouts and history with this backup?')){data={plan:v.plan,history:v.history,session:v.session||null};save();render()}}catch(err){alert('Could not restore: '+err.message)}return}if(el.dataset.day!==undefined){let d=el.dataset,p=data.plan[+d.day],target=d.ex!==undefined?p.ex[+d.ex]:p;target[d.field]=d.field==='sets'?Math.max(1,Math.min(12,+el.value||1)):el.value;save()}});
+app.addEventListener('input',e=>{let d=e.target.dataset;if(d.setField&&data.session){data.session.exercises[+d.i].sets[+d.j][d.setField]=e.target.value;save()}});
+document.getElementById('nav').addEventListener('click',e=>{let b=e.target.closest('button');if(b){page=b.dataset.page;render()}});
+function beep(){try{let C=window.AudioContext||window.webkitAudioContext;if(!C)return;let ctx=new C(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=740;gain.gain.value=.12;osc.start();osc.stop(ctx.currentTime+.22);osc.onended=()=>ctx.close()}catch(e){}}
+function tick(){let sc=document.getElementById('stop-clock');if(sc){let ms=stopwatch.elapsed+(stopwatch.running?performance.now()-stopwatch.start:0),cs=Math.floor(ms/10);sc.textContent=String(Math.floor(cs/6000)).padStart(2,'0')+':'+String(Math.floor(cs/100)%60).padStart(2,'0')+'.'+String(cs%100).padStart(2,'0');document.getElementById('sw-start').textContent=stopwatch.running?'Pause':'Start';document.getElementById('laps').innerHTML=stopwatch.laps.map((v,i)=>`<p class="row"><span>Lap ${stopwatch.laps.length-i}</span><span>${(v/1000).toFixed(2)}s</span></p>`).join('')}let rc=document.getElementById('rest-clock');if(rc){if(rest.running){let n=Math.max(0,Math.ceil((rest.end-Date.now())/1000));if(n===0){rest.running=false;rest.remaining=0;beep();if(navigator.vibrate)navigator.vibrate(200)}else rest.remaining=n}rc.textContent=duration(rest.remaining);document.getElementById('rest-start').textContent=rest.running?'Pause Rest':'Start Rest'}}
+setInterval(tick,60);save();render();
+</script></body></html>
