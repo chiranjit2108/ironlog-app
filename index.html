@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101510">
+<title>IronLog Gym Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101510;color:#f4f7f2;font-family:system-ui,sans-serif}
+header{padding:22px;background:#192019}
+h1{margin:0;font-size:28px}
+h1 span,.green{color:#baff55}
+main{padding:16px;max-width:650px;margin:auto;padding-bottom:100px}
+.card{background:#1c241e;border:1px solid #344032;border-radius:15px;padding:16px;margin:12px 0}
+button{background:#baff55;color:#14200b;border:0;border-radius:10px;padding:11px;font-weight:bold;cursor:pointer}
+button.secondary{background:#354135;color:white}
+input{width:75px;background:#101510;color:white;border:1px solid #566452;border-radius:8px;padding:9px;font-size:16px}
+nav{position:fixed;bottom:0;width:100%;display:flex;background:#1c241e;border-top:1px solid #344032}
+nav button{flex:1;background:transparent;color:#baff55;font-size:12px;padding:15px 3px}
+.muted{color:#9da99c;font-size:13px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.set{display:flex;align-items:center;gap:8px;margin:9px 0;flex-wrap:wrap}
+.done{background:#426c29!important;color:white}
+</style>
+</head>
+<body>
+<header>
+<h1>IRON<span>LOG</span></h1>
+<div class="muted">BUILD STRONGER EVERY DAY</div>
+</header>
+<main id="app"></main>
+<nav>
+<button onclick="page='home';render()">Home</button>
+<button onclick="page='plan';render()">Plan</button>
+<button onclick="page='track';render()">Track</button>
+<button onclick="page='progress';render()">Progress</button>
+<button onclick="page='history';render()">History</button>
+</nav>
+<script>
+const plan=[
+{name:"Push",muscles:"Chest, shoulders, triceps",ex:[
+["Bench Press",4],["Incline Dumbbell Press",3],
+["Shoulder Press",3],["Lateral Raise",3],
+["Triceps Pushdown",3]]},
+{name:"Pull",muscles:"Back and biceps",ex:[
+["Lat Pulldown",4],["Barbell Row",3],
+["Cable Row",3],["Face Pull",3],["Biceps Curl",3]]},
+{name:"Legs",muscles:"Quads, hamstrings, calves",ex:[
+["Squat",4],["Romanian Deadlift",3],
+["Leg Press",3],["Leg Curl",3],["Calf Raise",4]]},
+{name:"Upper",muscles:"Chest, back, shoulders, arms",ex:[
+["Incline Bench Press",3],["Pull Ups",3],
+["Chest Supported Row",3],["Lateral Raise",3],
+["Hammer Curl",3]]},
+{name:"Lower",muscles:"Legs, glutes, core",ex:[
+["Front Squat",3],["Hip Thrust",3],
+["Split Squat",3],["Leg Extension",3],["Plank",3]]}
+];
+let page="home",day=0,session=null;
+let history=[];
+try{history=JSON.parse(localStorage.getItem("ironlog-history")||"[]")}catch(e){}
+const app=document.getElementById("app");
+function save(){localStorage.setItem("ironlog-history",JSON.stringify(history))}
+function start(i){
+day=i;
+session={day:i,ex:plan[i].ex.map(([name,count])=>({
+name,sets:Array.from({length:count},()=>({weight:"",reps:"",done:false}))
+}))};
+page="track";render();
+}
+function render(){
+if(page==="home"){
+app.innerHTML=`<h2>Welcome back 💪</h2>
+<div class="card"><div class="muted">TOTAL WORKOUTS</div>
+<h1 class="green">${history.length}</h1></div>
+<h3>Your 5-day muscle-building split</h3>`+
+plan.map((p,i)=>`<div class="card row">
+<div><b>Day ${i+1}: ${p.name}</b><div class="muted">${p.muscles}</div></div>
+<button onclick="start(${i})">Start</button></div>`).join("");
+}
+if(page==="plan"){
+app.innerHTML="<h2>Workout Planner</h2>"+
+plan.map((p,i)=>`<div class="card">
+<h3>Day ${i+1}: ${p.name}</h3>
+<div class="muted">${p.muscles}</div>
+${p.ex.map(e=>`<p>${e[0]} — ${e[1]} sets</p>`).join("")}
+<button onclick="start(${i})">Start Workout</button></div>`).join("");
+}
+if(page==="track"){
+if(!session){app.innerHTML='<h2>No active workout</h2><button onclick="page=\'plan\';render()">Choose Workout</button>';return}
+app.innerHTML=`<h2>${plan[session.day].name} Workout</h2>
+<p class="muted">Enter weight in pounds and repetitions. Tap ✓ to mark completed sets.</p>`+
+session.ex.map((ex,i)=>`<div class="card"><h3>${ex.name}</h3>`+
+ex.sets.map((s,j)=>`<div class="set">
+<span>Set ${j+1}</span>
+<input type="number" min="0" step="0.5" placeholder="lb"
+value="${s.weight}" oninput="update(${i},${j},'weight',this.value)">
+<input type="number" min="0" placeholder="reps"
+value="${s.reps}" oninput="update(${i},${j},'reps',this.value)">
+<button class="${s.done?'done':'secondary'}" onclick="toggle(${i},${j})">✓</button>
+</div>`).join("")+"</div>").join("")+
+'<button onclick="finish()">Finish & Save Workout</button>';
+}
+if(page==="progress"){
+let volume=history.reduce((a,h)=>a+h.volume,0);
+let best={};
+history.forEach(h=>h.ex.forEach(e=>e.sets.forEach(s=>{
+if(s.done)best[e.name]=Math.max(best[e.name]||0,Number(s.weight)||0);
+})));
+app.innerHTML=`<h2>Progress</h2><div class="card">
+<h3>${history.length} workouts completed</h3>
+<h3 class="green">${volume.toLocaleString()} lb total volume</h3>
+</div><h3>Personal Bests</h3>`+
+(Object.entries(best).map(([n,v])=>`<div class="card row"><span>${n}</span><b class="green">${v} lb</b></div>`).join("")||'<p class="muted">Complete a workout to see your progress.</p>');
+}
+if(page==="history"){
+app.innerHTML="<h2>Workout History</h2>"+
+(history.slice().reverse().map(h=>`<div class="card">
+<b>${plan[h.day].name} Day</b>
+<p class="muted">${new Date(h.date).toLocaleString()}</p>
+<p>${h.volume.toLocaleString()} lb volume</p>
+<details><summary>Exercise details</summary>
+${h.ex.map(e=>`<p><b>${e.name}</b>: ${e.sets.filter(s=>s.done).map(s=>`${s.weight} lb × ${s.reps}`).join(", ")||"No completed sets"}</p>`).join("")}
+</details></div>`).join("")||'<p class="muted">No workouts saved yet.</p>')+
+'<button onclick="backup()">Export Backup</button>';
+}
+}
+function update(i,j,key,value){session.ex[i].sets[j][key]=value}
+function toggle(i,j){let s=session.ex[i].sets[j];s.done=!s.done;render()}
+function finish(){
+if(!session.ex.some(e=>e.sets.some(s=>s.done))){
+alert("Complete at least one set.");return;
+}
+let volume=session.ex.reduce((a,e)=>a+e.sets.reduce((b,s)=>
+b+(s.done?(Number(s.weight)||0)*(Number(s.reps)||0):0),0),0);
+history.push({...session,date:new Date().toISOString(),volume});
+save();session=null;page="history";render();
+}
+function backup(){
+let a=document.createElement("a");
+a.href=URL.createObjectURL(new Blob([JSON.stringify(history,null,2)],{type:"application/json"}));
+a.download="ironlog-backup.json";a.click();
+setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+render();
+let remaining=90,interval=null;
+let timer=document.createElement("div");
+timer.className="card";
+timer.style="position:fixed;bottom:58px;right:10px;padding:9px;z-index:3";
+timer.innerHTML='<span id="clock" class="green">01:30</span> <button id="timerbtn">Start Rest</button>';
+document.body.appendChild(timer);
+function showClock(){
+document.getElementById("clock").textContent=
+String(Math.floor(remaining/60)).padStart(2,"0")+":"+
+String(remaining%60).padStart(2,"0");
+}
+document.getElementById("timerbtn").onclick=function(){
+if(interval){clearInterval(interval);interval=null;this.textContent="Resume";return}
+if(remaining===0)remaining=90;
+this.textContent="Pause";
+interval=setInterval(()=>{
+remaining--;showClock();
+if(remaining<=0){clearInterval(interval);interval=null;
+remaining=90;this.textContent="Start Rest";
+if(navigator.vibrate)navigator.vibrate(200);
+alert("Rest complete!");showClock()}
+},1000);
+};
+</script>
+</body>
+</html>
